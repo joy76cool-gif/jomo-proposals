@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>車麗屋換圖 PoC Sample Sheet — mockup demo</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Noto Sans TC", "PingFang TC", sans-serif; background: #f0f3f4; color: #202124; }
+  .header { background: linear-gradient(135deg, #0f9d58 0%, #137333 100%); color: white; padding: 18px 28px; }
+  .header h1 { font-size: 1.35rem; font-weight: 500; }
+  .header .subtitle { font-size: 0.85rem; opacity: 0.9; margin-top: 4px; }
+  .tabs { background: white; border-bottom: 1px solid #dadce0; padding: 0 20px; display: flex; gap: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  .tab { padding: 14px 22px; cursor: pointer; border-bottom: 3px solid transparent; color: #5f6368; font-size: 0.95rem; transition: 0.15s; }
+  .tab:hover { background: #f8f9fa; }
+  .tab.active { color: #0f9d58; border-color: #0f9d58; font-weight: 600; background: #f0f9f4; }
+  .legend { padding: 14px 22px; background: #e8f5e9; border-left: 4px solid #0f9d58; margin: 16px 24px 0; font-size: 0.88rem; border-radius: 4px; }
+  .legend strong { color: #137333; }
+  .container { padding: 20px 24px 40px; }
+  .tab-content { display: none; background: white; border: 1px solid #dadce0; border-radius: 6px; overflow: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .tab-content.active { display: block; }
+  .tab-title { padding: 14px 20px; border-bottom: 1px solid #e8eaed; background: #fafbfc; font-weight: 600; color: #137333; font-size: 1.02rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.81rem; min-width: 1600px; }
+  thead { background: #fafbfc; }
+  th { padding: 10px 12px; text-align: left; font-weight: 600; color: #202124; border-bottom: 2px solid #0f9d58; border-right: 1px solid #e8eaed; white-space: nowrap; font-size: 0.82rem; }
+  th.col-action { background: #fff8e1; color: #b06000; }
+  th.col-rescan { background: #e3f2fd; color: #1565c0; }
+  td { padding: 8px 12px; border-bottom: 1px solid #f1f3f4; border-right: 1px solid #f1f3f4; vertical-align: middle; white-space: nowrap; }
+  td.wrap { white-space: normal; max-width: 200px; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  tr:hover td { background: #f0f9f4 !important; }
+  td.center { text-align: center; }
+  td.img-cell { width: 70px; padding: 4px; }
+  td.img-cell img { width: 60px; height: 60px; object-fit: cover; border: 1px solid #dadce0; border-radius: 3px; display: block; margin: 0 auto; }
+  .img-fallback { width: 60px; height: 60px; background: #f1f3f4; border: 1px dashed #dadce0; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #5f6368; }
+  .tag { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 0.72rem; font-weight: 600; }
+  .tag.red { background: #fce8e6; color: #c5221f; }
+  .tag.green { background: #ceead6; color: #137333; }
+  .tag.yellow { background: #fef7e0; color: #b06000; }
+  .tag.blue { background: #e3f2fd; color: #1565c0; }
+  .tag.gray { background: #e8eaed; color: #5f6368; }
+  .checkbox { display: inline-block; width: 18px; height: 18px; border: 1.5px solid #5f6368; border-radius: 3px; background: white; vertical-align: middle; text-align: center; line-height: 16px; font-weight: 700; color: #137333; }
+  .checkbox.checked { background: #0f9d58; color: white; border-color: #0f9d58; }
+  .checkbox.skip { background: #fbbc04; color: white; border-color: #fbbc04; }
+  .note-card { padding: 16px 20px; background: #fff8e1; border-left: 4px solid #f9ab00; margin: 20px 24px; font-size: 0.9rem; border-radius: 4px; line-height: 1.7; }
+  .check-icon { font-size: 1.1rem; }
+  .check-icon.ok { color: #137333; }
+  .check-icon.fail { color: #c5221f; }
+  .small { font-size: 0.78rem; color: #5f6368; }
+  .mono { font-family: "JetBrains Mono", monospace; font-size: 0.74rem; }
+  .stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; padding: 20px 24px; background: #f8f9fa; }
+  .stat-box { background: white; border-radius: 6px; padding: 18px; text-align: center; border: 1px solid #dadce0; }
+  .stat-box .num { font-size: 1.8rem; font-weight: 700; color: #0f9d58; line-height: 1; }
+  .stat-box .label { font-size: 0.85rem; color: #5f6368; margin-top: 6px; }
+  .stat-box.fail .num { color: #c5221f; }
+  .stat-box.warn .num { color: #b06000; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📊 車麗屋換圖 PoC — Google Sheet mockup（Path E + 18 指紋 + 32 actionable dedup）</h1>
+  <div class="subtitle">6 支商品（4 PoC + 2 驗證 sample） / 110 張圖完整 verified（32 主圖 + 78 附圖）/ <strong>18 張指紋庫</strong>（6 換 + 3 刪 + 9 新版共用 c-1~c-9）/ <strong>32 actionable</strong>（25 換 + 4 刪 + 3 真補 dedup）· 2026-05-19 v6 mockup · **Tab 5 master 商品清單+換圖計畫**（1511 active SKU + dashboard 累計已完成/剩餘）整合原 Tab 1 / Tab 2 SKU 完整性 check（9-張驗收 rule）· 上線後改真實 Google Sheets｜<a href="https://docs.google.com/spreadsheets/d/1m9_uxHI3h_rAskWUK-cwT9oza_lkh4qeEj0QlFlbR7I/edit" target="_blank" style="color:#fff;text-decoration:underline;">👉 開真實 Google Sheet ↗</a></div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="show(0)">📋 Tab 1: 換圖待辦清單 (12)</div>
+  <div class="tab" onclick="show(1)">🔍 Tab 2: 人工抽檢清單</div>
+  <div class="tab" onclick="show(2)">📈 Tab 3: Daily Report</div>
+  <div class="tab" onclick="show(3)">⚠️ Tab 4: 錯誤 Log</div>
+</div>
+
+<div class="legend">
+  <strong>LMVA 6 件套 ↔ Sheet 對應</strong>：
+  <strong>L</strong>ogging（每行紀錄 ✓ Tab 1）·
+  <strong>M</strong>onitoring（status 即時更新 ✓ Tab 1 status 欄 + Tab 3）·
+  <strong>V</strong>erifying（自動重抓對比 ✓ Tab 1 rescan 3 欄 + L2 每 10 SKU agent 重掃）·
+  <strong>A</strong>lerting（失敗即時 LINE ✓ Tab 4 觸發）·
+  <strong>R</strong>eporting（daily ✓ Tab 3）·
+  <strong>A</strong>uditing（每 10 SKU 抽 1 ✓ Tab 2）
+</div>
+
+<div class="container">
+
+<!-- ============== TAB 1: 換圖待辦清單 ============== -->
+<div class="tab-content active" id="tab0">
+  <div class="tab-title">📋 Sheet 結構分工（Tab 1 工作底稿 / Tab 5 客戶快速報告）</div>
+  <div class="note-card" style="margin: 12px 16px 0;">
+    <strong>📋 Tab 1 工作底稿 by SKU × c-1~c-9</strong>：6 支已掃 SKU，每 SKU 一 row × 17 col（c-1 購物流程 / c-2 選胎 / c-3 訂購須知 / c-4 保固 / c-5 保固不含 / c-6 買二四輪送 / c-7 門市據點 / c-8 輪胎期限 / c-9 預約服務 + 主圖區 + 附圖區 detail + 執行時間 / momo 異動單號 / rescan ✓ / rescan 時間）。運營看這個 tab 知道每張 c-X 是 🔴 換 / 🟠 刪 / 🟢 補 / 🟢 已新版。<br>
+    <strong>📊 Tab 5 master 客戶快速報告</strong>：1511 active SKU，dashboard 顯示「累計已完成商品編號數 / 累計剩餘商品編號數 / actionable 統計 / PASS 數」 + 每 SKU 一 row 摘要（換/刪/補張數 + 將有 9/9 + 驗收狀態）。客戶看這個 tab 一眼知道「by 商品 ID 好了幾個」。<br>
+    <strong>32 actionable（dedup 後）</strong>：25 換 + 4 刪 + 3 真補。3 SKU（GOODYEAR / Zeetex / YOKOHAMA）換完即 9/9 PASS；3 SKU 各還缺 1 張要補（DUNLOP 4940347 / 4400090 / 12632590）。<br>
+    <strong>✅ 驗收 rule（雙 check）</strong>：每 SKU PASS 條件 = (1) 舊版指紋全清乾淨 + (2) NEW_c-1 ~ NEW_c-9 共 9 張全 detected（含換完的）。Tab 2「SKU 完整性 check」自動 surface 每 SKU 健康度。
+  </div>
+  <div class="stats-row">
+    <div class="stat-box"><div class="num">32</div><div class="label">總 actionable（25 換+4 刪+3 真補 dedup）</div></div>
+    <div class="stat-box"><div class="num">3</div><div class="label">pending（待勾選）</div></div>
+    <div class="stat-box warn"><div class="num">5</div><div class="label">running / dry-run（含 2 主圖）</div></div>
+    <div class="stat-box"><div class="num">5</div><div class="label">done + verified</div></div>
+    <div class="stat-box fail"><div class="num">1</div><div class="label">failed（觸發 LINE alert）</div></div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>商品 i_code</th>
+        <th>商品名</th>
+        <th>檔名</th>
+        <th>舊版預覽</th>
+        <th>命中舊指紋</th>
+        <th class="col-action">建議 action</th>
+        <th>對應新版檔</th>
+        <th>運營勾選</th>
+        <th>運營 comment</th>
+        <th>執行 status</th>
+        <th>執行時間</th>
+        <th>momo 異動單號</th>
+        <th class="col-rescan">rescan SHA-256（前 12 chars）</th>
+        <th class="col-rescan">rescan vs 新版</th>
+        <th class="col-rescan">rescan 時間</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- DUNLOP 3 rows: pending -->
+      <tr>
+        <td class="mono"><a href="https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=4940347" target="_blank" style="color:#1976d2; text-decoration:none;">4940347 ↗</a></td>
+        <td>DUNLOP SP TOURING R1</td>
+        <td class="mono">c-6.jpg</td>
+        <td class="img-cell"><img src="https://www.momoshop.com.tw/expertimg/0004/940/347/mobile/c-6.jpg" onerror="this.outerHTML='<div class=img-fallback>無預覽</div>'"></td>
+        <td>OLD_REPLACE_c-6</td>
+        <td class="center"><span class="tag yellow">換</span></td>
+        <td>NEW_c-6<br><span class="small">（新買二四輪送）</span></td>
+        <td class="center"><span class="checkbox"></span></td>
+        <td class="wrap"></td>
+        <td class="center"><span class="tag gray">pending</span></td>
+        <td>—</td>
+        <td>—</td>
+        <td class="mono">—</td>
+        <td class="center">—</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td class="mono"><a href="https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=4940347" target="_blank" style="color:#1976d2; text-decoration:none;">4940347 ↗</a></td>
+        <td>DUNLOP SP TOURING R1</td>
+        <td class="mono">c-7.jpg</td>
+        <td class="img-cell"><img src="https://www.momoshop.com.tw/expertimg/0004/940/347/mobile/c-7.jpg" onerror="this.outerHTML='<div class=img-fallback>無預覽</div>'"></td>
+        <td>OLD_REPLACE_c-7舊_門市清單</td>
+        <td class="center"><span class="tag yellow">換</span></td>
+        <td>NEW_c-7<br><span class="small">（門市據點）</span></td>
+        <td class="center"><span class="checkbox"></span></td>
+        <td class="wrap"></td>
+        <td class="center"><span class="tag gray">pending</span></td>
+        <td>—</td>
+        <td>—</td>
+        <td class="mono">—</td>
+        <td class="center">—</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td class="mono"><a href="https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=4940347" target="_blank" style="color:#1976d2; text-decoration:none;">4940347 ↗</a></td>
+        <td>DUNLOP SP TOURING R1</td>
+        <td class="mono">1.jpg</td>
+        <td class="img-cell"><img src="https://www.momoshop.com.tw/expertimg/0004/940/347/mobile/1.jpg" onerror="this.outerHTML='<div class=img-fallback>無預覽</div>'"></td>
+        <td>OLD_REPLACE_c-3舊_訂購須知</td>
+        <td class="center"><span class="tag yellow">換</span></td>
+        <td>NEW_c-3<br><span class="small">（輪胎訂購須知）</span></td>
+        <td class="center"><span class="checkbox"></span></td>
+        <td class="wrap"></td>
+        <td class="center"><span class="tag gray">pending</span></td>
+        <td>—</td>
+        <td>—</td>
+        <td class="mono">—</td>
+        <td class="center">—</td>
+        <td>—</td>
+      </tr>
+
+      <!-- GOODYEAR 3 rows: running -->
+      <tr>
+        <td class="mono"><a href="https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=11897300" target="_blank" style="color:#1976d2; text-decoration:none;">11897300 ↗</a></td>
+        <td>GOODYEAR Assurance MaxGuard</td>
+        <td class="mono">c-7.jpg</td>
+        <td class="img-cell"><img src="https://www.momoshop.com.tw/expertimg/0011/897/300/mobile/c-7.jpg" onerror="this.outerHTML='<div class=img-fallback>無預覽</div>'"></td>
+        <td>OLD_REPLACE_c-7</td>
+        <td class="center"><span class="tag yellow">換</span></td>
+        <td>NEW_c-7<br><span class="small">（門市據點）⚠️ TBD</span></td>
+        <td class="center"><span class="checkbox checked">✓</span></td>
+        <td class="wrap small">業務 confirm 改 c-7 位置放門市新版</td>
+        <td class="center"><span class="tag blue">running</span></td>
+        <td>2026-05-20 09:32</td>
+        <td>—</td>
+        <td class="mono">—</td>
+        <td class="center">—</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td class="mono"><a href="https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=11897300" target="_blank" style="color:#1976d2; text-decoration:none;">11897300 ↗</a></td>
+        <td>GOODYEAR Assurance MaxGuard</td>
+        <td class="mono">c-8.jpg</td>
+        <td class="img-cell"><img src="https://www.momoshop.com.tw/expertimg/0011/897/300/mobile/c-8.jpg" onerror="this.outerHTML='<div class=img-fallback>無預覽</div>'"></td>
+        <td>OLD_REPLACE_c-7舊_門市清單</td>
+        <td class="center"><span class="tag yellow">換</span></td>
+        <td>NEW_c-7<br><span class="small">（門市據點）</span></td>
+        <td class="center"><span class="checkbox checked">✓</span></td>
+        <td class="wrap"></td>
+        <td class="center"><span class="tag blue">running</span></td>
+        <td>2026-05-20 09:33</td>
+        <td>—</td>
+        <td class="mono">—</td>
+        <td class="center">—</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td class="mono"><a href="https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=11897300" target="_blank" style="color:#1976d2; text-decoration:none;">11897300 ↗</a></td>
+        <td>GOODYEAR Assurance MaxGuard</td>
+        <td class="mono">c-3.jpg</td>
+        <td class="img-cell"><img src="https://www.momoshop.com.tw/expertimg/0011/897/300/mobile/c-3.jpg" onerror="this.outerHTML='<div class=img-fallback>無預覽</div>'"></td>
+        <td>OLD_REPLACE_c-3舊_訂購須知</td>
+        <td class="center"><span class="tag yellow">換</span></td>
+        <td>NEW_c-3<br><span class="small">（輪胎訂購須知）</span></td>
+        <td class="center"><span class="checkbox checked">✓</span></td>
+        <td class="wrap"></td>
+        <td class="center"><span class="tag blue">running</span></td>
+        <td>2026-05-20 09:33</td>
+        <td>—</td>
+        <td class="mono">—</td>
+        <td class="center">—</td>
+        <td>—</td>
+      </tr>
+
+      <!-- Zeetex 3 rows: done + verified -->
+      <tr>
+        <td class="mono"><a href="https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=12096679" target="_blank" style="color:#1976d2; text-decoration:none;">12096679 ↗</a></td>
+        <td>Zeetex 捷泰斯 HP5000</td>
+        <td class="mono">c-7.jpg</td>
+        <td class="img-cell"><img src="https://www.momoshop.com.tw/expertimg/0012/096/679/mobile/c-7.jpg" onerror="this.outerHTML='<div class=img-fallback>無預覽</div>'"></td>
+        <td>OLD_REPLACE_c-7</td>
+        <td class="center"><span class="tag yellow">換</span></td>
+        <td>NEW_c-7<br><span class="small">（門市據點）</span></td>
+        <td class="center"><span class="checkbox checked">✓</span></td>
+        <td class="wrap"></td>
+        <td class="center"><span class="tag green">done</span></td>
+        <td>2026-05-20 09:28</td>
+        <td class="mono">M-20260520-001234</td>
+        <td class="mono">53ff88136ee4</td>
+        <td class="center"><span class="check-icon ok">✓</span></td>
+        <td>09:28:42</td>
+      </tr>
+      <tr>
+        <td class="mono"><a href="https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=12096679" target="_blank" style="color:#1976d2; text-decoration:none;">12096679 ↗</a></td>
+        <td>Zeetex 捷泰斯 HP5000</td>
+        <td class="mono">c-8.jpg</td>
+        <td class="img-cell"><img src="https://www.momoshop.com.tw/expertimg/0012/096/679/mobile/c-8.jpg" onerror="this.outerHTML='<div class=img-fallback>無預覽</div>'"></td>
+        <td>OLD_REPLACE_c-7舊_門市清單</td>
+        <td class="center"><span class="tag yellow">換</span></td>
+        <td>NEW_c-7<br><span class="small">（門市據點）</span></td>
+        <td class="center"><span class="checkbox checked">✓</span></td>
+        <td class="wrap"></td>
+        <td class="center"><span class="tag green">done</span></td>
+        <td>2026-05-20 09:29</td>
+        <td class="mono">M-20260520-001235</td>
+        <td class="mono">53ff88136ee4</td>
+        <td class="center"><span class="check-icon ok">✓</span></td>
+        <td>09:29:18</td>
+      </tr>
+      <tr>
+        <td class="mono"><a href="https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=12096679" target="_blank" style="color:#1976d2; text-decoration:none;">12096679 ↗</a></td>
+        <td>Zeetex 捷泰斯 HP5000</td>
+        <td class="mono">c-3.jpg</td>
+        <td class="img-cell"><img src="https://www.momoshop.com.tw/expertimg/0012/096/679/mobile/c-3.jpg" onerror="this.outerHTML='<div class=img-fallback>無預覽</div>'"></td>
+        <td>OLD_REPLACE_c-3舊_訂購須知</td>
+        <td class="center"><span class="tag yellow">換</span></td>
+        <td>NEW_c-3<br><span class="small">（輪胎訂購須知）</span></td>
+        <td class="center"><span class="checkbox checked">✓</span></td>
+        <td class="wrap"></td>
+        <td class="center"><span class="tag green">done</span></td>
+        <td>2026-05-20 09:30</td>
+        <td class="mono">M-20260520-001236</td>
+        <td class="mono">d3d72dc18c80</td>
+        <td class="center"><span class="check-icon ok">✓</span></td>
+        <td>09:30:55</td>
+      </tr>
+
+      <!-- YOKOHAMA 3 rows: 2 done + 1 failed -->
+      <tr>
+        <td class="mono"><a href="https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=13924745" target="_blank" style="color:#1976d2; text-decoration:none;">13924745 ↗</a></td>
+        <td>YOKOHAMA E70</td>
+        <td class="mono">07.jpg</td>
+        <td class="img-cell"><img src="https://www.momoshop.com.tw/expertimg/0013/924/745/mobile/07.jpg" onerror="this.outerHTML='<div class=img-fallback>無預覽</div>'"></td>
+        <td>OLD_REPLACE_c-7</td>
+        <td class="center"><span class="tag yellow">換</span></td>
+        <td>NEW_c-7<br><span class="small">（門市據點）</span></td>
+        <td class="center"><span class="checkbox checked">✓</span></td>
+        <td class="wrap"></td>
+        <td class="center"><span class="tag green">done</span></td>
+        <td>2026-05-20 09:31</td>
+        <td class="mono">M-20260520-001237</td>
+        <td class="mono">53ff88136ee4</td>
+        <td class="center"><span class="check-icon ok">✓</span></td>
+        <td>09:31:42</td>
+      </tr>
+      <tr>
+        <td class="mono"><a href="https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=13924745" target="_blank" style="color:#1976d2; text-decoration:none;">13924745 ↗</a></td>
+        <td>YOKOHAMA E70</td>
+        <td class="mono">08.jpg</td>
+        <td class="img-cell"><img src="https://www.momoshop.com.tw/expertimg/0013/924/745/mobile/08.jpg" onerror="this.outerHTML='<div class=img-fallback>無預覽</div>'"></td>
+        <td>OLD_REPLACE_c-7舊_門市清單</td>
+        <td class="center"><span class="tag yellow">換</span></td>
+        <td>NEW_c-7<br><span class="small">（門市據點）</span></td>
+        <td class="center"><span class="checkbox checked">✓</span></td>
+        <td class="wrap"></td>
+        <td class="center"><span class="tag green">done</span></td>
+        <td>2026-05-20 09:32</td>
+        <td class="mono">M-20260520-001238</td>
+        <td class="mono">53ff88136ee4</td>
+        <td class="center"><span class="check-icon ok">✓</span></td>
+        <td>09:32:18</td>
+      </tr>
+      <tr style="background: #fce8e6;">
+        <td class="mono"><a href="https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=13924745" target="_blank" style="color:#1976d2; text-decoration:none;">13924745 ↗</a></td>
+        <td>YOKOHAMA E70</td>
+        <td class="mono">03.jpg</td>
+        <td class="img-cell"><img src="https://www.momoshop.com.tw/expertimg/0013/924/745/mobile/03.jpg" onerror="this.outerHTML='<div class=img-fallback>無預覽</div>'"></td>
+        <td>OLD_REPLACE_c-3舊_訂購須知</td>
+        <td class="center"><span class="tag yellow">換</span></td>
+        <td>NEW_c-3<br><span class="small">（輪胎訂購須知）</span></td>
+        <td class="center"><span class="checkbox checked">✓</span></td>
+        <td class="wrap small">⚠️ 上傳新圖 timeout</td>
+        <td class="center"><span class="tag red">failed</span></td>
+        <td>2026-05-20 09:33</td>
+        <td>—</td>
+        <td class="mono">—</td>
+        <td class="center"><span class="check-icon fail">✗</span></td>
+        <td class="small">未跑（執行失敗 auto rollback）</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="note-card">
+    <strong>說明：</strong>本表是 <strong>Tab 1 換圖待辦清單</strong>，運營在「運營勾選」欄 click checkbox → Playwright 開始執行該行 → status 從 pending → running → done。<br>
+    <strong>關鍵 verifying 欄</strong>（藍底）：每張換完 Playwright 立刻重抓 momo 上該檔的 SHA-256，跟預期 NEW_c-X 對比，一致 → 標 ✓，不一致 → 標 ✗ 觸發 alert。<br>
+    <strong>失敗 row（紅底）</strong>：自動 rollback 原圖、跑進 Tab 4 錯誤 log、即時 LINE 通知運營處理。
+  </div>
+
+  <div class="tab-title" style="border-top: 1px solid #e8eaed; margin-top: 16px;">📌 Stage 0 全 SKU 掃描後預期額外 row 類型（示意，PoC 階段沒命中）</div>
+  <table>
+    <thead>
+      <tr>
+        <th>場景</th>
+        <th>圖區</th>
+        <th>命中指紋</th>
+        <th class="col-action">action</th>
+        <th>對應新版檔</th>
+        <th>運營勾選</th>
+        <th>處理方式</th>
+        <th class="col-rescan">verify 機制</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background: #fafbfc;">
+        <td>Stage 0 命中舊「四輪定位機」</td>
+        <td><span class="tag gray">說明區 expertimg</span></td>
+        <td>OLD_DELETE_四輪定位機</td>
+        <td class="center"><span class="tag red">刪</span></td>
+        <td>—（無，直接刪）</td>
+        <td class="center"><span class="checkbox checked">✓</span></td>
+        <td class="wrap small">Playwright atomic 刪除該位置圖 + 後續位置自動往前遞補</td>
+        <td class="center"><span class="check-icon ok">✓</span> rescan 該位置已無此舊圖</td>
+      </tr>
+      <tr style="background: #fafbfc;">
+        <td>Stage 0 命中舊「獨家比較表」</td>
+        <td><span class="tag gray">說明區 expertimg</span></td>
+        <td>OLD_DELETE_獨家比較表</td>
+        <td class="center"><span class="tag red">刪</span></td>
+        <td>—（無，直接刪）</td>
+        <td class="center"><span class="checkbox checked">✓</span></td>
+        <td class="wrap small">同上 atomic 刪除</td>
+        <td class="center"><span class="check-icon ok">✓</span> rescan 該位置已無此舊圖</td>
+      </tr>
+      <tr style="background: #fff8e1;">
+        <td>Stage 0 命中舊主圖過期疊圖</td>
+        <td><span class="tag yellow">主圖 goodsimg</span></td>
+        <td>OLD_REPLACE_c-6（假設命中）</td>
+        <td class="center"><span class="tag yellow">換 (Path E Playwright)</span></td>
+        <td>NEW_c-6 新買二四輪送</td>
+        <td class="center"><span class="checkbox checked">✓</span></td>
+        <td class="wrap small">Path E PoC 含主圖, Stage 0 全 SKU 若 PoC 主圖 reliable → 全自動 Playwright</td>
+        <td class="center"><span class="check-icon ok">✓</span> rescan 主圖已換新版</td>
+      </tr>
+      <tr style="background: #ffe0e0;">
+        <td>Stage 0 主圖 fallback (若 PoC reliability 不夠)</td>
+        <td><span class="tag yellow">主圖 goodsimg</span></td>
+        <td>OLD_REPLACE_c-7（假設命中）</td>
+        <td class="center"><span class="tag red">待運維 (fallback)</span></td>
+        <td>NEW_c-7 門市據點</td>
+        <td class="center">—</td>
+        <td class="wrap small">PoC 主圖 reliability 不夠 → 搭運維順風車：LINE reminder 推運營下次編 SKU 時手動換 + 月度抽檢追蹤</td>
+        <td class="center">⏰ reminder 已送</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="note-card" style="background: #fff8e1; border-color: #f9ab00;">
+    <strong>📌 為什麼這 4 row 沒出現在主表？</strong> PoC 階段 4 支實測商品沒命中「刪」action（指紋庫有 2 張刪指紋但 4 支 sample 沒出現）；主圖區 row 在 Stage 0 全 SKU 掃描時才會大量出現（主表 PoC 階段 4 主圖 row 在 real Google Sheet 已含）。<strong>Stage 0 全 SKU 掃描階段</strong>，全平台 N 千支 SKU 預期會出現這 4 種 row 類型，主表自動填入。<br>
+    <strong>Path E 主圖 decision logic</strong>：PoC 4 支主圖 Playwright reliable → Stage 0 全 SKU 主圖自動換；若 PoC 有 issue → fallback「主圖搭運維順風車」（reminder + 月度抽檢，屬主圖治理 add-on）。
+  </div>
+</div>
+
+<!-- ============== TAB 2: 人工抽檢清單 ============== -->
+<div class="tab-content" id="tab1">
+  <div class="tab-title">🔍 Tab 2：人工抽檢清單（每 10 SKU 自動抽 1 張）</div>
+  <table>
+    <thead>
+      <tr>
+        <th>抽檢時間</th>
+        <th>SKU</th>
+        <th>檔名</th>
+        <th>換前截圖</th>
+        <th>換後截圖</th>
+        <th>程式 rescan 結果</th>
+        <th>抽檢人</th>
+        <th>抽檢結果</th>
+        <th>抽檢備註</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>2026-05-20 10:15</td>
+        <td class="mono"><a href="https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=12096679" target="_blank" style="color:#1976d2; text-decoration:none;">Zeetex_12096679 ↗</a></td>
+        <td class="mono">c-7.jpg</td>
+        <td class="img-cell"><div class="img-fallback">換前.png</div></td>
+        <td class="img-cell"><div class="img-fallback">換後.png</div></td>
+        <td class="center"><span class="check-icon ok">✓</span></td>
+        <td>運營 王小姐</td>
+        <td class="center"><span class="tag green">✓ 通過</span></td>
+        <td class="wrap small">視覺確認新版門市清單對齊 layout 無 offset</td>
+      </tr>
+      <tr>
+        <td>2026-05-20 11:42</td>
+        <td class="mono"><a href="https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=13924745" target="_blank" style="color:#1976d2; text-decoration:none;">YOKOHAMA_13924745 ↗</a></td>
+        <td class="mono">07.jpg</td>
+        <td class="img-cell"><div class="img-fallback">換前.png</div></td>
+        <td class="img-cell"><div class="img-fallback">換後.png</div></td>
+        <td class="center"><span class="check-icon ok">✓</span></td>
+        <td>運營 王小姐</td>
+        <td class="center"><span class="tag green">✓ 通過</span></td>
+        <td class="wrap small">OK 跟其他商品一致</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="note-card">
+    <strong>邏輯</strong>：Playwright 每跑完 10 SKU → 系統隨機抽 1 張寫進此 Tab → 運營在「抽檢結果」勾選 ✓/✗。<br>
+    <strong>價值</strong>：byte-level rescan 已自動驗證圖檔內容對，但 layout / 視覺對齊 / 字體渲染這種「人類才能判」的問題需人工最後確認。<br>
+    <strong>抽檢通過率寫進 Tab 3 daily report</strong>。
+  </div>
+</div>
+
+<!-- ============== TAB 3: Daily Report ============== -->
+<div class="tab-content" id="tab2">
+  <div class="tab-title">📈 Tab 3：Daily Report（每日 18:00 自動產）</div>
+  <table>
+    <thead>
+      <tr>
+        <th>日期</th>
+        <th>當日跑張數</th>
+        <th>當日成功</th>
+        <th>當日失敗</th>
+        <th>rescan 通過率</th>
+        <th>人工抽檢通過率</th>
+        <th>本日 alert 次數</th>
+        <th>處理 SLA</th>
+        <th class="col-rescan">累計已完成商品圖</th>
+        <th class="col-rescan">累計剩餘商品圖</th>
+        <th class="col-rescan">完成進度</th>
+        <th>備註</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>2026-05-19</td>
+        <td class="center">0</td>
+        <td class="center">0</td>
+        <td class="center">0</td>
+        <td class="center">—</td>
+        <td class="center">—</td>
+        <td class="center">0</td>
+        <td class="center">—</td>
+        <td class="center"><strong>0</strong> 張</td>
+        <td class="center"><strong>12</strong> 張</td>
+        <td class="center"><span class="tag gray">0%</span></td>
+        <td class="small">尚未啟動（等待運營勾選 Tab 1）</td>
+      </tr>
+      <tr style="background: #f0f9f4;">
+        <td><strong>2026-05-20</strong></td>
+        <td class="center"><strong>12</strong></td>
+        <td class="center"><span class="tag green">11</span></td>
+        <td class="center"><span class="tag red">1</span></td>
+        <td class="center"><span class="tag green">100%</span> <span class="small">(11/11)</span></td>
+        <td class="center"><span class="tag green">100%</span> <span class="small">(2/2)</span></td>
+        <td class="center"><span class="tag yellow">1</span></td>
+        <td class="center">35 分鐘</td>
+        <td class="center"><strong>11</strong> 張</td>
+        <td class="center"><strong>1</strong> 張</td>
+        <td class="center"><span class="tag yellow">92%</span></td>
+        <td class="small">YOKOHAMA/03 上傳 timeout → 待重試</td>
+      </tr>
+      <tr>
+        <td>2026-05-21</td>
+        <td class="center">1</td>
+        <td class="center">1</td>
+        <td class="center">0</td>
+        <td class="center"><span class="tag green">100%</span></td>
+        <td class="center">—</td>
+        <td class="center">0</td>
+        <td class="center">—</td>
+        <td class="center"><strong>12</strong> 張</td>
+        <td class="center"><strong>0</strong> 張</td>
+        <td class="center"><span class="tag green">100%</span></td>
+        <td class="small">YOKOHAMA/03 重試成功 ✓ PoC 全完成</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="note-card" style="margin: 12px 16px; background: #e3f2fd; border-color: #1976d2;">
+    <strong>📌 等 Joy 提供全 SKU 商品列表後</strong>：累計欄位將自動更新為 momo 全平台真實數字（如「累計已完成 1,234 張 / 累計剩餘 4,766 張 / 進度 21%」），這 3 行 mock 是 4 支 PoC 示意。
+  </div>
+  <div class="note-card">
+    <strong>自動觸發</strong>：每日固定時段（建議 18:00，依運營作息調整）排程 → 撈 Tab 1 status + Tab 2 抽檢結果 + Tab 4 alert 數量 → 寫入新 row。<br>
+    <strong>同步推播</strong>：每日 09:00 早晨 LINE / email 把昨日 report 推給 Joy + 車麗屋運營主管。<br>
+    <strong>累計趨勢</strong>：可以延伸成週報 / 月報（自動 SUM 多日）+ 折線圖 visualization。
+  </div>
+</div>
+
+<!-- ============== TAB 4: 錯誤 Log ============== -->
+<div class="tab-content" id="tab3">
+  <div class="tab-title">⚠️ Tab 4：錯誤 Log（失敗即時觸發 LINE alert）</div>
+  <table>
+    <thead>
+      <tr>
+        <th>失敗時間</th>
+        <th>SKU</th>
+        <th>檔名</th>
+        <th>失敗階段</th>
+        <th>失敗原因</th>
+        <th>截圖 URL</th>
+        <th>auto rollback</th>
+        <th>LINE alert</th>
+        <th>處理人</th>
+        <th>處理 status</th>
+        <th>解決時間</th>
+        <th>備註</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background: #fce8e6;">
+        <td>2026-05-20 09:33</td>
+        <td class="mono"><a href="https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=13924745" target="_blank" style="color:#1976d2; text-decoration:none;">YOKOHAMA_13924745 ↗</a></td>
+        <td class="mono">03.jpg</td>
+        <td>上傳新圖</td>
+        <td>HTTP 504 Gateway Timeout（30s 等不到 momo 回應）</td>
+        <td class="img-cell"><div class="img-fallback">err.png</div></td>
+        <td class="center"><span class="check-icon ok">✓ 成功</span></td>
+        <td class="center"><span class="tag green">✓ 09:33:08</span></td>
+        <td>工程師 阿明</td>
+        <td class="center"><span class="tag green">已解決</span></td>
+        <td>2026-05-21 14:08</td>
+        <td class="wrap small">離峰時段重試成功，更新 Tab 1 此 row status → done</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="note-card">
+    <strong>失敗即時處理 flow</strong>：<br>
+    1. Playwright catch exception → 立刻 auto rollback 原圖<br>
+    2. 寫入 Tab 4 一行（時間、SKU、失敗階段、原因、截圖）<br>
+    3. 觸發 LINE 官方帳號（Messaging API）推給工程師 + 運營主管（含 SKU 連結）<br>
+    4. 工程師在 Tab 4 「處理 status」欄手動標「處理中 / 已解決」<br>
+    5. 解決後在 Tab 1 該 row 手動 reset → 排程重試<br>
+    <strong>SLA 目標</strong>：critical 失敗 1 小時內回應、24 小時內解決（寫進方案 A 驗收標準）。
+  </div>
+</div>
+
+</div>
+
+<script>
+function show(i) {
+  document.querySelectorAll('.tab').forEach((t, idx) => t.classList.toggle('active', idx === i));
+  document.querySelectorAll('.tab-content').forEach((t, idx) => t.classList.toggle('active', idx === i));
+}
+</script>
+</body>
+</html>
